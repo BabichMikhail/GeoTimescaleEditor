@@ -2,17 +2,18 @@ var remote = require('electron').remote
 var electronFs = remote.require('fs')
 var electronDialog = remote.dialog
 
-function Field(type, jsonFieldName, publicFieldName, value, restrictions) {
+function Field(type, jsonFieldName, publicFieldName, value, attributes) {
     this.type = type
     this.jsonFieldName = jsonFieldName
     this.publicFieldName = publicFieldName
     this.value = value
-    this.restrictions = restrictions
+    this.attributes = attributes
     return this
 }
 
-function GetJsonHandler () {
+function JsonHandler () {
     this.data = {}
+    this.form = null
     this.filename = null
 
     this.loadJson = function (filePaths) {
@@ -26,12 +27,53 @@ function GetJsonHandler () {
     }
 
     this.saveJson = function () {
-        // TODO read form
-        alert("save")
+        this.data = this.getFieldValue(this.form)
+        try { electronFs.writeFileSync(this.filename, JSON.stringify(this.data), 'utf-8'); }
+        catch(e) { alert('Не удалось сохранить файл'); }
+    }
+
+    this.getFieldValue = function (field) {
+        let data = null
+        switch (field.type) {
+            case 'guid':
+            case 'string':
+            case 'text':
+                data = $(`#${field.id}`).val()
+                break
+            case 'float':
+                data = parseFloat($(`#${field.id}`).val())
+                break
+            case 'int':
+                data = parseInt($(`#${field.id}`).val())
+                break;
+            case 'contentItem':
+            case 'exhibit':
+            case 'timeline':
+                data = {}
+                for (let i = 0; i < field.value.length; ++i)
+                    data[field.value[i].jsonFieldName] = this.getFieldValue(field.value[i])
+                break
+            case 'contentItem[]':
+            case 'exhibit[]':
+            case 'timeline[]':
+                data = []
+                for (let i = 0; i < field.value.length; ++i)
+                    data[i] = this.getFieldValue(field.value[i])
+                // TODO null or empty array?
+                // data = data.length > 0 ? data : null
+                break
+            case 'unknown':
+                data = field.value
+                break
+            default:
+                alert(`Unhandled type: ${field.type}`)
+        }
+        return data
     }
 
     this.regenerateForm = function () {
-        let html = this.generateFormHtml(this.generateTimelineField(this.data, true), null)
+        this.form = this.generateTimelineField(this.data, true)
+        let html = this.generateFormHtml(this.form, null)
         $('#root').html(html)
     }
 
@@ -46,6 +88,7 @@ function GetJsonHandler () {
             new Field('timeline[]', 'timelines', 'Период', this.generateTimelinesField(data.timelines || []), {}),
             new Field('exhibit[]', 'exhibits', 'Экспонаты', this.generateExhibitsField(data.exhibits || []), {}),
         ]
+
         if (!isRootLevel) {
             // TODO add fields
         }
@@ -88,19 +131,24 @@ function GetJsonHandler () {
                 new Field('string', 'mediaSource', 'Медиа источник', data[i].mediaSource || '', {}),
                 new Field('string', 'mediaType', 'Медиа тип', data[i].mediaType || '', {}), // Тут, наверно, какой-то enum
             ]
-            fields[i] = new Field('contentItem', null, 'Контент', fieldValue, {})
+            fields[i] = new Field('contentItem', null, null, fieldValue, {})
         }
         return fields;
     }
 
     this.generateFormHtml = function (field, parentId) {
+        if (field.attributes.hidden == true) return ''
+
         let id = parentId;
         if (id != null && field.jsonFieldName != null)
             id += '-' + field.jsonFieldName
         else if (id == null && field.jsonFieldName != null)
             id = field.jsonFieldName
 
-        // TODO restrictions.hidden
+        // id with uppercase characters doesn't work in $(`#id`)
+        id = typeof id == 'string' ? id.toLowerCase() : null
+        field.id = id
+
         let html = field.publicFieldName == null
             ? `<div class="col-sm-12">`
             : `
@@ -130,7 +178,7 @@ function GetJsonHandler () {
                 break
             case 'timeline[]':
                 for (let i = 0; i < field.value.length; ++i)
-                    html += this.generateFormHtml(field.value[i], `${id}-timeline[${i}]`)
+                    html += this.generateFormHtml(field.value[i], `${id}-timeline-${i}`)
                 break
             case 'exhibit':
                 html += `<div>`
@@ -141,7 +189,7 @@ function GetJsonHandler () {
             case 'exhibit[]':
                 html += `<div>`
                 for (let i = 0; i < field.value.length; ++i)
-                    html += this.generateFormHtml(field.value[i], `${id}-exhibit[${i}]`)
+                    html += this.generateFormHtml(field.value[i], `${id}-exhibit-${i}`)
                 html += `</div>`
                 break
             case 'contentItem':
@@ -150,10 +198,12 @@ function GetJsonHandler () {
                 break
             case 'contentItem[]':
                 for (let i = 0; i < field.value.length; ++i)
-                    html += this.generateFormHtml(field.value[i], `${id}-contentItem[${i}]`)
+                    html += this.generateFormHtml(field.value[i], `${id}-content-item-${i}`)
+                break
+            case 'unknown':
                 break
             default:
-                alert('Unhandled type: ' + field.type)
+                alert(`Unhandled type: ${field.type}`)
         }
 
         return html + (field.publicFieldName == null ?  `</div>` : `</div></div>`)
@@ -161,7 +211,8 @@ function GetJsonHandler () {
 
     return this
 }
-let jsonHandler = new GetJsonHandler()
+let jsonHandler = new JsonHandler()
+jsonHandler.regenerateForm()
 
 document.querySelector('#loadJsonFile').addEventListener('click', function () {
     electronDialog.showOpenDialog(null, {
@@ -169,4 +220,17 @@ document.querySelector('#loadJsonFile').addEventListener('click', function () {
         filters: [{name: 'All Files', extensions: ['json']}]
     }, function (data) { jsonHandler.loadJson(data) })
 })
-document.querySelector('#saveJsonFile').addEventListener('click', jsonHandler.saveJson)
+let saveAsFunction = function () {
+    electronDialog.showSaveDialog(null, {}, function (filename) {
+        if (typeof filename != undefined) {
+            jsonHandler.filename = filename
+            jsonHandler.saveJson()
+        }
+    })
+}
+document.querySelector('#saveJsonFile').addEventListener('click', function () {
+    jsonHandler.filename == null ? saveAsFunction() : jsonHandler.saveJson()
+})
+document.querySelector('#saveAsJsonFile').addEventListener('click', function () {
+    saveAsFunction()
+})
