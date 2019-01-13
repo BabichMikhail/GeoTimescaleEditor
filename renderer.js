@@ -90,7 +90,21 @@ function JsonHandler () {
         ]
 
         if (!isRootLevel) {
-            // TODO add fields
+            let extraFieldValue = [
+                new Field('unknown', 'ChildTimelines', null, data.ChildTimelines || null, {}),
+                new Field('unknown', 'FromDay', null, data.FromDay || null, {}),
+                new Field('unknown', 'FromMonth', null, data.FromMonth || null, {}),
+                new Field('unknown', 'FromYear', null, data.FromYear || null, {}),
+                new Field('unknown', 'ToDay', null, data.ToDay || null, {}),
+                new Field('unknown', 'ToMonth', null, data.ToMonth || null, {}),
+                new Field('unknown', 'ToYear', null, data.ToYear || null, {}),
+                new Field('unknown', 'Sequence', null, data.Sequence || null, {}),
+                new Field('string', 'Threshold', 'Порог', data.Threshold || null, {}),
+                new Field('int', 'UniqueID', 'Уникальный ID', data.UniqueID || null, {}),
+                new Field('unknown', '__type', null, data.__type || 'TimelineRaw:#Chronozoom.Entities', {}),
+            ]
+            for (let i = 0; i < extraFieldValue.length; ++i)
+                fieldValue[fieldValue.length] = extraFieldValue[i]
         }
         return new Field('timeline', null, null, fieldValue, {})
     }
