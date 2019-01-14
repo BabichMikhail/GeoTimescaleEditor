@@ -65,7 +65,6 @@ function JsonHandler () {
 
         let data = null
         switch (field.type) {
-            case 'guid':
             case 'string':
             case 'text':
                 data = $(`#${field.id}`).val()
@@ -92,6 +91,7 @@ function JsonHandler () {
                 if (field.attributes.use_null_instead_empty_array && data.length == 0)
                     data = null
                 break
+            case 'guid':
             case 'unknown':
                 data = field.value
                 break
@@ -204,19 +204,16 @@ function JsonHandler () {
         switch (field.type) {
             case 'int':
             case 'float':
-                html += `<input id="${id}" type="number" value="${field.value}" class="form-control">`
+                html += `<input id="${id}" type="number" value="${field.value}" class="form-control" style="width:780px">`
                 break
             case 'string':
-                html += `<input id="${id}" type="text" value="${field.value}" class="form-control">`
+                html += `<input id="${id}" type="text" value="${field.value}" class="form-control" style="width:780px">`
                 break
             case 'text':
-                html += `<textarea id="${id}" class="form-control" rows="5">${field.value}</textarea>`
-                break
-            case 'guid':
-                html += `<input id="${id}" type="text" value="${field.value}">`
+                html += `<textarea id="${id}" class="form-control" rows="5" style="width:780px">${field.value}</textarea>`
                 break
             case 'timeline':
-                html += `<div>`
+                html += `<div style="width:960px">`
                 for (let i = 0; i < field.value.length; ++i)
                     html += this.generateFormHtml(field.value[i], id)
                 html += `</div>`
@@ -226,7 +223,7 @@ function JsonHandler () {
                     html += this.generateFormHtml(field.value[i], `${id}-timeline-${i}`)
                 break
             case 'exhibit':
-                html += `<div>`
+                html += `<div style="width:960px">`
                 for (let i = 0; i < field.value.length; ++i)
                     html += this.generateFormHtml(field.value[i], id)
                 html += `</div>`
@@ -242,9 +239,12 @@ function JsonHandler () {
                     html += this.generateFormHtml(field.value[i], id)
                 break
             case 'contentItem[]':
+                html += `<div style="width:960px">`
                 for (let i = 0; i < field.value.length; ++i)
                     html += this.generateFormHtml(field.value[i], `${id}-content-item-${i}`)
+                html += `</div>`
                 break
+            case 'guid':
             case 'unknown':
                 break
             default:
