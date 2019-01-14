@@ -33,6 +33,8 @@ function JsonHandler () {
     }
 
     this.getFieldValue = function (field) {
+        if (field.attributes.hidden) return field.value
+
         let data = null
         switch (field.type) {
             case 'guid':
@@ -59,8 +61,8 @@ function JsonHandler () {
                 data = []
                 for (let i = 0; i < field.value.length; ++i)
                     data[i] = this.getFieldValue(field.value[i])
-                // TODO null or empty array?
-                // data = data.length > 0 ? data : null
+                if (field.attributes.use_null_instead_empty_array && data.length == 0)
+                    data = null
                 break
             case 'unknown':
                 data = field.value
@@ -85,13 +87,14 @@ function JsonHandler () {
             new Field('float', 'start', 'Начало', data.start || 0, {}),
             new Field('float', 'end', 'Конец', data.end || 0, {}),
             new Field('guid', 'id', 'ID', data.id || '', {hidden: true}),
-            new Field('timeline[]', 'timelines', 'Период', this.generateTimelinesField(data.timelines || []), {}),
+            new Field('timeline[]', 'timelines', 'Период', this.generateTimelinesField(data.timelines || []), {use_null_instead_empty_array: true}),
             new Field('exhibit[]', 'exhibits', 'Экспонаты', this.generateExhibitsField(data.exhibits || []), {}),
         ]
 
         if (!isRootLevel) {
             let extraFieldValue = [
                 new Field('unknown', 'ChildTimelines', null, data.ChildTimelines || null, {}),
+                new Field('guid', 'ParentTimelineId', null, data.ParentTimelineId || null, {hidden: true}),
                 new Field('unknown', 'FromDay', null, data.FromDay || null, {}),
                 new Field('unknown', 'FromMonth', null, data.FromMonth || null, {}),
                 new Field('unknown', 'FromYear', null, data.FromYear || null, {}),
@@ -120,8 +123,8 @@ function JsonHandler () {
         let fields = []
         for (let i = 0; i < data.length; ++i) {
             let fieldValue = [
-                new Field('guid', 'id', 'ID', data[i].id || '', {hidden: true}),
-                new Field('guid', 'parentTimelineid', 'ParentId', data[i].parentTimelineId, {hidden: true}),
+                new Field('guid', 'id', null, data[i].id || '', {hidden: true}),
+                new Field('guid', 'parentTimelineid', null, data[i].parentTimelineId, {hidden: true}),
                 new Field('string', 'title', 'Название', data[i].title || '', {}),
                 new Field('float', 'time', 'Время', data[i].time || 0, {}),
                 new Field('contentItem[]', 'contentItems', 'Контент', this.generateExhibitContentItemsField(data[i].contentItems || []), {})
@@ -135,11 +138,11 @@ function JsonHandler () {
         let fields = []
         for (let i = 0; i < data.length; ++i) {
             let fieldValue = [
-                new Field('guid', 'id', 'ID', data[i].id || '', {hidden: true}),
-                new Field('guid', 'parentExhibitId', 'ParentId', data[i].parentExhibitId || '', {hidden: true}),
+                new Field('guid', 'id', null, data[i].id || '', {hidden: true}),
+                new Field('guid', 'parentExhibitId', null, data[i].parentExhibitId || '', {hidden: true}),
                 new Field('string', 'title', 'Название', data[i].title, {}),
                 new Field('string', 'uri', 'Ссылка', data[i].uri || '', {}),
-                new Field('int', 'Order', '№ п/п', data[i].Order || 1, {hidden: true}),
+                new Field('int', 'Order', null, data[i].Order || 1, {hidden: true}),
                 new Field('string', 'attribution', 'Attribution?', data[i].attribution || '', {}),
                 new Field('text', 'description', 'Описание', data[i].description || '', {}),
                 new Field('string', 'mediaSource', 'Медиа источник', data[i].mediaSource || '', {}),
@@ -151,7 +154,7 @@ function JsonHandler () {
     }
 
     this.generateFormHtml = function (field, parentId) {
-        if (field.attributes.hidden == true) return ''
+        if (field.attributes.hidden) return ''
 
         let id = parentId;
         if (id != null && field.jsonFieldName != null)
