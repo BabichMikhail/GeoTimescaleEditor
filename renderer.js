@@ -28,8 +28,36 @@ function JsonHandler () {
 
     this.saveJson = function () {
         this.data = this.getFieldValue(this.form)
-        try { electronFs.writeFileSync(this.filename, JSON.stringify(this.data), 'utf-8'); }
-        catch(e) { alert('Не удалось сохранить файл'); }
+        this.postProcessData(this.data)
+        try { electronFs.writeFileSync(this.filename, JSON.stringify(this.data), 'utf-8') }
+        catch(e) { alert('Не удалось сохранить файл') }
+    }
+
+    this.getNewGuid = function () {
+        return ([1e7]+-1e3+-4e3+-8e3+-1e11).replace(/[018]/g, c => (c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> c / 4).toString(16))
+    }
+
+    this.postProcessData = function(data) {
+        if (data.id == null)
+            data.id = this.getNewGuid()
+
+        for (let i = 0; i < (data.timelines || []).length; ++i) {
+            data.timelines[i].ParentTimelineId = data.id
+            this.postProcessData(data.timelines[i])
+        }
+
+        for (let i = 0; i < (data.exhibits || []).length; ++i) {
+            data.exhibits[i].id = data.exhibits[i].id || this.getNewGuid()
+            data.exhibits[i].parentTimelineId = data.id
+
+            for (let j = 0; j < (data.exhibits[i].contentItems || []).length; ++j) {
+                data.exhibits[i].contentItems[j].id = data.exhibits[i].contentItems[j].id || this.getNewGuid()
+                data.exhibits[i].contentItems[j].parentExhibitId = data.exhibits[i].id
+                data.exhibits[i].contentItems[j].Order = j + 1
+            }
+        }
+
+        return data
     }
 
     this.getFieldValue = function (field) {
