@@ -108,6 +108,7 @@ function JsonHandler () {
         this.form = this.generateTimelineField(this.data, true)
         let html = this.generateFormHtml(this.form, null)
         $('#root').html(html)
+        this.refreshButtonEventListeners()
     }
 
     this.generateTimelineField = function(data, isRootLevel) {
@@ -118,8 +119,8 @@ function JsonHandler () {
             new Field('float', 'start', 'Начало', data.start || 0, {}),
             new Field('float', 'end', 'Конец', data.end || 0, {}),
             new Field('guid', 'id', 'ID', data.id || '', {hidden: true}),
-            new Field('timeline[]', 'timelines', 'Период', this.generateTimelinesField(data.timelines || []), {use_null_instead_empty_array: true}),
-            new Field('exhibit[]', 'exhibits', 'Экспонаты', this.generateExhibitsField(data.exhibits || []), {}),
+            new Field('timeline[]', 'timelines', 'Период', this.generateTimelinesField(data.timelines || []), {use_null_instead_empty_array: true, hasButtons: true}),
+            new Field('exhibit[]', 'exhibits', 'Экспонаты', this.generateExhibitsField(data.exhibits || []), {hasButtons: true}),
         ]
 
         if (!isRootLevel) {
@@ -158,7 +159,7 @@ function JsonHandler () {
                 new Field('guid', 'parentTimelineid', null, data[i].parentTimelineId, {hidden: true}),
                 new Field('string', 'title', 'Название', data[i].title || '', {}),
                 new Field('float', 'time', 'Время', data[i].time || 0, {}),
-                new Field('contentItem[]', 'contentItems', 'Контент', this.generateExhibitContentItemsField(data[i].contentItems || []), {})
+                new Field('contentItem[]', 'contentItems', 'Контент', this.generateExhibitContentItemsField(data[i].contentItems || []), {hasButtons: true})
             ]
             fields[i] = new Field('exhibit', null, null, fieldValue, {})
         }
@@ -197,13 +198,7 @@ function JsonHandler () {
         id = typeof id == 'string' ? id.toLowerCase() : null
         field.id = id
 
-        let html = field.publicFieldName == null
-            ? `<div class="col-sm-12">`
-            : `
-                <div class="form-group row">
-                    <label class="col-sm-2 col-form-label" for="${id}">${field.publicFieldName}</label>
-                    <div class="col-sm-10">`
-
+        let html = ``
         switch (field.type) {
             case 'int':
             case 'float':
@@ -266,7 +261,105 @@ function JsonHandler () {
                 alert(`Unhandled type: ${field.type}`)
         }
 
-        return html + (field.publicFieldName == null ?  `</div>` : `</div></div>`)
+        if (field.publicFieldName == null && html != ``) {
+            html = `<div class="col-sm-12">` + html + `</div>`
+        }
+        else if (field.publicFieldName != null) {
+            let buttonsId = `${id}-buttons`
+            let visibleButtonsHtml = ``
+            let hiddenButtonsHtml = ``
+            if (field.attributes.hasButtons) {
+                buttonValue = `${field.type} ${buttonsId} ${id}`
+                visibleButtonsHtml = `<div class="col-sm-12">
+                    <button class="btn btn-sm btn-primary add-button" value="${buttonValue}" type="button">Добавить</button>
+                    <button class="btn btn-sm btn-info hide-button" value="${buttonValue}" type="button">Свернуть</button>
+                </div>`
+                hiddenButtonsHtml = `<div class="col-sm-12" style="display:none">
+                    <button class="btn btn-sm btn-info show-button" value="${buttonValue}" type="button">Развернуть</button>
+                </div>`
+            }
+
+            html = `<div class="form-group row">
+                <label class="col-sm-2 col-form-label" for="${id}">${field.publicFieldName}</label>
+                <div id="${buttonsId}" class="col-sm-10">${visibleButtonsHtml}${hiddenButtonsHtml}
+            ` + html + `</div></div>`
+        }
+
+        return html
+    }
+
+    this.prepareButtonClick = function (buttonValue) {
+        let valueComponents = buttonValue.split(' ')
+        if (valueComponents.length != 3)
+            alert('invalid button value')
+        return valueComponents
+    }
+
+    this.handleAddButtonClick = function (type, buttonsId, componentId) {
+        let block = $(`#${buttonsId}`)
+        componentCount = block.length - 1
+        console.log(componentCount)
+
+        let id = null
+        let field = null
+        switch (type) {
+            case 'timeline[]':
+                id = `${componentId}-timeline-${componentCount}`
+                field = this.generateTimelineField({}, false)
+                break
+            case 'exhibit[]':
+                id = `${componentId}-exhibit-${componentCount}`
+                field = this.generateTimelineField({}, false)
+                break
+            case 'content-item[]':
+                id = `${componentId}-content-item-${componentCount}`
+                field = this.generateTimelineField({}, false)
+                break
+            default:
+                alert('Not implemented')
+        }
+
+        block.append(this.generateFormHtml(field, id))
+    }
+
+    this.handleHideButtonClick = function (type, buttonsId, componentId) {
+        let block = $(`#${buttonsId}`)
+        block.children().eq(0).hide('slow')
+        block.children().eq(1).show('slow')
+        for (let i = 2; i <= block.children().length; ++i)
+            block.children().eq(i).hide('slow')
+    }
+
+    this.handleShowButtonClick = function (type, buttonsId, componentId) {
+        let block = $(`#${buttonsId}`)
+        block.children().eq(0).show('slow')
+        block.children().eq(1).hide('slow')
+        for (let i = 2; i <= block.children().length; ++i)
+            block.children().eq(i).show('slow')
+    }
+
+    this.eventListeners = {}
+
+    this.refreshButtonEventListeners = function () {
+        let data = [
+            {class: '.add-button', action: function (t, b, c) { jsonHandler.handleAddButtonClick(t, b, c) }},
+            {class: '.hide-button', action: function (t, b, c) { jsonHandler.handleHideButtonClick(t, b, c) }},
+            {class: '.show-button', action: function (t, b, c) { jsonHandler.handleShowButtonClick(t, b, c) }},
+        ]
+        for (let i = 0; i < data.length; ++i) {
+            let elements = document.querySelectorAll(data[i].class)
+            for (let j = 0; j < elements.length; ++j) {
+                let key = `${data[i].class}-${elements[j].value}`
+                if (!this.eventListeners[key]) {
+                    this.eventListeners[key] = true
+                    elements[j].addEventListener('click', function (event) {
+                        let [type, buttonsId, componentId] = jsonHandler.prepareButtonClick(event.srcElement.value)
+                        data[i].action(type, buttonsId, componentId)
+                        jsonHandler.refreshButtonEventListeners()
+                    })
+                }
+            }
+        }
     }
 
     return this
