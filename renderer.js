@@ -91,6 +91,9 @@ function JsonHandler () {
                 if (field.attributes.use_null_instead_empty_array && data.length == 0)
                     data = null
                 break
+            case 'enum':
+                data = $(`#${field.id} option:selected`).val()
+                break
             case 'guid':
             case 'unknown':
                 data = field.value
@@ -174,7 +177,7 @@ function JsonHandler () {
                 new Field('string', 'attribution', 'Attribution?', data[i].attribution || '', {}),
                 new Field('text', 'description', 'Описание', data[i].description || '', {}),
                 new Field('string', 'mediaSource', 'Медиа источник', data[i].mediaSource || '', {}),
-                new Field('string', 'mediaType', 'Медиа тип', data[i].mediaType || '', {}), // Тут, наверно, какой-то enum
+                new Field('enum', 'mediaType', 'Медиа тип', (data[i].mediaType || 'audio').toLowerCase(), {enum_values: [['audio', 'audio'], ['deepimage', 'deep image'], ['image', 'image'], ['pdf', 'PDF'], ['picture', 'picture'], ['video', 'video']]}),
             ]
             fields[i] = new Field('contentItem', null, null, fieldValue, {})
         }
@@ -243,6 +246,18 @@ function JsonHandler () {
                 for (let i = 0; i < field.value.length; ++i)
                     html += this.generateFormHtml(field.value[i], `${id}-content-item-${i}`)
                 html += `</div>`
+                break
+            case 'enum':
+                values = field.attributes.enum_values || null
+                if (!Array.isArray(values))
+                    alert('enum values is null')
+                html += `<div style="width:780px"><select id="${id}" class="form-control">`
+                for (let i = 0; i < values.length; ++i) {
+                    selected = values[i][0] == field.value ? ` selected` : ``;
+                    html += `<option value="${values[i][0]}"${selected}>${values[i][1]}</option>`
+                }
+
+                html += `</select></div>`
                 break
             case 'guid':
             case 'unknown':
