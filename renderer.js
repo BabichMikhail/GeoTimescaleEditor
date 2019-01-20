@@ -15,7 +15,7 @@ function JsonHandler() {
     this.data = {}
     this.form = null
     this.filename = null
-    this.eventListeners = {}
+    this.extraAttributesById = {}
 
     this.loadJson = function (filePaths) {
         if (typeof filePaths === undefined) return
@@ -93,7 +93,7 @@ function JsonHandler() {
                 data = []
                 for (let i = 0; i < field.value.length; ++i)
                     data[i] = this.getFieldValue(field.value[i])
-                if (field.attributes.use_null_instead_empty_array && data.length == 0)
+                if (field.attributes.useNullInsteadEmptyArray && data.length == 0)
                     data = null
                 break
             case 'enum':
@@ -125,7 +125,7 @@ function JsonHandler() {
             new Field('float', 'start', 'Начало', data.start || 0, {}),
             new Field('float', 'end', 'Конец', data.end || 0, {}),
             new Field('guid', 'id', 'ID', data.id || '', {hidden: true}),
-            new Field('timeline[]', 'timelines', 'Период', this.generateTimelinesField(data.timelines || []), {use_null_instead_empty_array: true, hasButtons: true}),
+            new Field('timeline[]', 'timelines', 'Период', this.generateTimelinesField(data.timelines || []), {useNullInsteadEmptyArray: true, hasButtons: true}),
             new Field('exhibit[]', 'exhibits', 'Экспонаты', this.generateExhibitsField(data.exhibits || []), {hasButtons: true}),
         ]
 
@@ -197,19 +197,42 @@ function JsonHandler() {
         return fields;
     }
 
-    this.generateFormHtml = function (field, parentId) {
+    this.generateArrayItemButtons = function (id, itemVisible, canMoveUp, canMoveDown, canDelete, canChangeVisibility) {
+        if (id == null) return `` // TODO otstoi
+
+        visibleButtonStyle = ``
+        hiddenButtonStyle = `style="display:none"`
+        if (!itemVisible)
+            [hiddenButtonStyle, visibleButtonStyle] = [visibleButtonStyle, hiddenButtonStyle]
+
+        let html = `<div class="form-group row col-sm-12">`
+        if (canChangeVisibility)
+            html += `<div>
+                <button class="btn btn-sm btn-info hide-item-button" value="${id}" ${visibleButtonStyle} type="button">Свернуть</button>
+                <button class="btn btn-sm btn-info show-item-button" value="${id}" ${hiddenButtonStyle} type="button" >Развернуть</button>
+            </div>`
+        if (canMoveUp)
+            html += `<div style="margin-left:0.5rem"><button class="btn btn-sm btn-warning up-item-button" ${visibleButtonStyle} value="${id}" type="button">&#129049;</button></div>`
+        if (canMoveDown)
+            html += `<div style="margin-left:0.5rem"><button class="btn btn-sm btn-warning down-item-button" ${visibleButtonStyle} value="${id}" type="button">&#129051;</button></div>`
+        if (canDelete)
+            html += `<div style="margin-left:0.5rem"><button class="btn btn-sm btn-danger remove-item-button" ${visibleButtonStyle} value="${id}" type="button">x</button></div>`
+        return html + `</div>`
+    }
+
     this.generateFormHtml = function (field, parentId, attributes) {
         if (field.attributes.hidden) return ''
 
         let id = parentId;
         if (id != null && field.jsonFieldName != null)
-            id += '-' + field.jsonFieldName
+            id += `-${field.jsonFieldName}`
         else if (id == null && field.jsonFieldName != null)
             id = field.jsonFieldName
 
         // id with uppercase characters doesn't work in $(`#id`)
         id = typeof id == 'string' ? id.toLowerCase() : null
         field.id = id
+        attributes = {...attributes, ...(this.extraAttributesById[id] || {})}
 
         let html = ``
         switch (field.type) {
@@ -224,48 +247,46 @@ function JsonHandler() {
                 html += `<textarea id="${id}" class="form-control" rows="5" style="width:780px">${field.value}</textarea>`
                 break
             case 'timeline':
-                html += `<div style="width:960px">`
+                html += `<div style="width:960px"><hr>${this.generateArrayItemButtons(id, attributes.visible || true, !attributes.isFirst && !attributes.isRoot, !attributes.isLast && !attributes.isRoot, !attributes.isRoot, !attributes.isRoot)}<div>`
                 for (let i = 0; i < field.value.length; ++i)
                     html += this.generateFormHtml(field.value[i], id, {})
-                html += `</div>`
+                html += `</div></div>`
                 break
-            // TODO
+            // TODO more copy-paste...
             case 'timeline[]':
                 for (let i = 0; i < field.value.length; ++i)
                     html += this.generateFormHtml(field.value[i], `${id}-timeline-${i}`, {isFirst: i == 0, isLast: i == field.value.length - 1})
                 break
             case 'exhibit':
-                html += `<div style="width:960px">`
+                html += `<div style="width:960px"><hr>${this.generateArrayItemButtons(id, attributes.visible || true, !attributes.isFirst && !attributes.isRoot, !attributes.isLast && !attributes.isRoot, !attributes.isRoot, !attributes.isRoot)}<div>`
                 for (let i = 0; i < field.value.length; ++i)
                     html += this.generateFormHtml(field.value[i], id, {})
-                html += `</div>`
+                html += `</div></div>`
                 break
             case 'exhibit[]':
-                html += `<div>`
                 for (let i = 0; i < field.value.length; ++i)
                     html += this.generateFormHtml(field.value[i], `${id}-exhibit-${i}`, {isFirst: i == 0, isLast: i == field.value.length - 1})
-                html += `</div>`
                 break
             case 'contentItem':
+                html += `<div style="width:960px"><hr>${this.generateArrayItemButtons(id, field.attributes.visible || true, !attributes.isFirst && !attributes.isRoot, !attributes.isLast && !attributes.isRoot, !attributes.isRoot, !attributes.isRoot)}<div>`
                 for (let i = 0; i < field.value.length; ++i)
                     html += this.generateFormHtml(field.value[i], id, {})
+                html += `</div></div>`
                 break
             case 'contentItem[]':
-                html += `<div style="width:960px">`
                 for (let i = 0; i < field.value.length; ++i)
-                    html += this.generateFormHtml(field.value[i], `${id}-content-item-${i}`, {isFirst: i == 0, isLast: i == field.value.length - 1})
-                html += `</div>`
+                    html += this.generateFormHtml(field.value[i], `${id}-contentitem-${i}`, {isFirst: i == 0, isLast: i == field.value.length - 1})
                 break
             case 'enum':
                 values = field.attributes.enumValues || null
                 if (!Array.isArray(values))
                     alert('enum values is null')
+
                 html += `<div style="width:780px"><select id="${id}" class="form-control">`
                 for (let i = 0; i < values.length; ++i) {
                     selected = values[i][0] == field.value ? ` selected` : ``;
                     html += `<option value="${values[i][0]}"${selected}>${values[i][1]}</option>`
                 }
-
                 html += `</select></div>`
                 break
             case 'guid':
@@ -275,9 +296,8 @@ function JsonHandler() {
                 alert(`Unhandled type: ${field.type}`)
         }
 
-        if (field.publicFieldName == null && html != ``) {
-            html = `<div class="col-sm-12">` + html + `</div>`
-        }
+        if (field.publicFieldName == null && html != ``)
+            html = `<div class="col-sm-12">${html}</div>`
         else if (field.publicFieldName != null) {
             let buttonsId = `${id}-buttons`
             let visibleButtonsHtml = ``
@@ -295,18 +315,12 @@ function JsonHandler() {
 
             html = `<div class="form-group row">
                 <label class="col-sm-2 col-form-label" for="${id}">${field.publicFieldName}</label>
-                <div id="${buttonsId}" class="col-sm-10">${visibleButtonsHtml}${hiddenButtonsHtml}
-            ` + html + `</div></div>`
+                <div id="${buttonsId}" class="col-sm-10">${visibleButtonsHtml}${hiddenButtonsHtml}${html}
+                </div>
+            </div>`
         }
 
         return html
-    }
-
-    this.prepareButtonClick = function (buttonValue) {
-        let valueComponents = buttonValue.split(' ')
-        if (valueComponents.length != 3)
-            alert('invalid button value')
-        return valueComponents
     }
 
     this.getFormField = function (id) {
@@ -317,8 +331,10 @@ function JsonHandler() {
                 case 'timeline[]':
                 case 'exhibit':
                 case 'exhibit[]':
+                case 'contentItem':
+                case 'contentItem[]':
                     for (let i = 0; i < field.value.length; ++i) {
-                        if (id.indexOf(field.value[i].id) == 0) {
+                        if (id.indexOf(field.value[i].id) != -1) {
                             field = field.value[i]
                             continue
                         }
@@ -329,7 +345,7 @@ function JsonHandler() {
             }
         }
 
-        if (field == null)
+        if (field == null || typeof field == 'undefined')
             throw 'Logic exception'
         return field
     }
@@ -373,21 +389,106 @@ function JsonHandler() {
             block.children().eq(i).show('slow')
     }
 
+    this.setExtraAttribute = function (id, attribute, value) {
+        let attributes = (this.extraAttributesById[id] || {})
+        attributes[attribute] = value
+        this.extraAttributesById[id] = attributes
+    }
+
+    // TODO more and more copy-paste
+    this.handleHideItemButtonClick = function (fieldId) {
+        this.setExtraAttribute(fieldId, 'visible', false)
+        splitedId = fieldId.split('-')
+        let index = parseInt(splitedId[splitedId.length - 1])
+        splitedId.pop()
+        splitedId.pop()
+
+        let parentId = splitedId.join('-')
+        parentField = this.getFormField(parentId)
+        let block = $(`#${parentId}-buttons`).children().eq(index + 2).children().eq(0)
+        block.children().eq(1).html(this.generateArrayItemButtons(fieldId, false, index > 0, index < parentField.value - 1, true, true))
+        block.children().eq(2).hide('slow')
+    }
+
+    this.handleShowItemButtonClick = function (fieldId) {
+        this.setExtraAttribute(fieldId, 'visible', true)
+        splitedId = fieldId.split('-')
+        let index = parseInt(splitedId[splitedId.length - 1])
+        splitedId.pop()
+        splitedId.pop()
+
+        let parentId = splitedId.join('-')
+        parentField = this.getFormField(parentId)
+        let block = $(`#${parentId}-buttons`).children().eq(index + 2).children().eq(0)
+        block.children().eq(1).html(this.generateArrayItemButtons(fieldId, true, index > 0, index < parentField.value - 1, true, true))
+        block.children().eq(2).show('slow')
+    }
+
+    this.handleUpItemButtonClick = function (fieldId) {
+        // TODO не работает
+        splitedId = fieldId.split('-')
+        let index = parseInt(splitedId[splitedId.length - 1])
+        splitedId.pop()
+        splitedId.pop()
+
+        if (index == 0) return
+        parentField = this.getFormField(splitedId.join('-'))
+        [parentField.value[index - 1], parentField.value[index]] = [parentField.value[index], parentField.value[index - 1]]
+
+        this.updateData()
+        this.regenerateForm()
+    }
+
+    this.handleDownItemButtonClick = function (fieldId) {
+        splitedId = fieldId.split('-')
+        let index = parseInt(splitedId[splitedId.length - 1])
+        splitedId.pop()
+        splitedId.pop()
+
+        parentField = this.getFormField(splitedId.join('-'))
+        if (index == parentField.value.length - 1) return
+        [parentField.value[index + 1], parentField.value[index]] = [parentField.value[index], parentField.value[index + 1]]
+
+        this.updateData()
+        this.regenerateForm()
+    }
+
+    this.handleRemoveItemButtonClick = function (fieldId) {
+        splitedId = fieldId.split('-')
+        let index = parseInt(splitedId[splitedId.length - 1])
+        splitedId.pop()
+        splitedId.pop()
+
+        this.getFormField(splitedId.join('-')).value.splice(index, 1)
+
+        this.updateData()
+        this.regenerateForm()
+    }
+
+    this.prepareButtonClick = function (buttonValue) {
+        return buttonValue.split(' ')
+    }
+
     this.refreshButtonEventListeners = function () {
         let data = [
-            {class: '.add-button', action: function (t, b, c) { jsonHandler.handleAddButtonClick(t, b, c) }},
-            {class: '.hide-button', action: function (t, b, c) { jsonHandler.handleHideButtonClick(t, b, c) }},
-            {class: '.show-button', action: function (t, b, c) { jsonHandler.handleShowButtonClick(t, b, c) }},
+            {class: '.add-button', action: function (a, b, c) { jsonHandler.handleAddButtonClick(a, b, c) }},
+            {class: '.hide-button', action: function (a, b, c) { jsonHandler.handleHideButtonClick(a, b, c) }},
+            {class: '.show-button', action: function (a, b, c) { jsonHandler.handleShowButtonClick(a, b, c) }},
+            {class: '.hide-item-button', action: function (a) { jsonHandler.handleHideItemButtonClick(a) }},
+            {class: '.show-item-button', action: function (a) { jsonHandler.handleShowItemButtonClick(a) }},
+            {class: '.up-item-button', action: function (a) { jsonHandler.handleUpItemButtonClick(a) }},
+            {class: '.down-item-button', action: function (a) { jsonHandler.handleDownItemButtonClick(a) }},
+            {class: '.remove-item-button', action: function (a) { jsonHandler.handleRemoveItemButtonClick(a) }},
         ]
         for (let i = 0; i < data.length; ++i) {
             let elements = document.querySelectorAll(data[i].class)
             for (let j = 0; j < elements.length; ++j) {
-                let key = `${data[i].class}-${elements[j].value}`
-                if (!this.eventListeners[key]) {
-                    this.eventListeners[key] = true
+                if (!elements[j].hasEventListener) {
+                    elements[j].hasEventListener = true
                     elements[j].addEventListener('click', function (event) {
-                        let [type, buttonsId, fieldId] = jsonHandler.prepareButtonClick(event.srcElement.value)
-                        data[i].action(type, buttonsId, fieldId)
+                        // TODO correct argument parsing
+                        let [a, b, c] = jsonHandler.prepareButtonClick(event.srcElement.value)
+                        data[i].action(a, b, c)
                         jsonHandler.refreshButtonEventListeners()
                     })
                 }
