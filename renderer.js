@@ -16,6 +16,7 @@ function JsonHandler() {
     this.form = null
     this.filename = null
     this.extraAttributesById = {}
+    this.timelineUniqueIdSet = {}
 
     this.loadJson = function (filePaths) {
         if (typeof filePaths === undefined) return
@@ -113,8 +114,14 @@ function JsonHandler() {
         this.form = this.generateTimelineField(this.data, true)
         let html = this.generateFormHtml(this.form, null, {isRoot: true})
         $('#root').html(html)
-        this.eventListeners = {}
         this.refreshButtonEventListeners()
+    }
+
+    this.getUniqueId = function (idCandidate) {
+        while (idCandidate == null || (this.timelineUniqueIdSet[idCandidate] || false))
+            idCandidate = Math.floor(Math.random() * 2500000000)
+        this.timelineUniqueIdSet[idCandidate] = true
+        return idCandidate
     }
 
     this.generateTimelineField = function (data, isRootLevel) {
@@ -141,7 +148,7 @@ function JsonHandler() {
                 new Field('unknown', 'ToYear', null, data.ToYear || null, {}),
                 new Field('unknown', 'Sequence', null, data.Sequence || null, {}),
                 new Field('string', 'Threshold', 'Порог', data.Threshold || null, {}),
-                new Field('int', 'UniqueID', 'Уникальный ID', data.UniqueID || null, {}),
+                new Field('int', 'UniqueID', 'Уникальный ID', this.getUniqueId(data.UniqueID || null), {hidden: true}),
                 new Field('unknown', '__type', null, data.__type || 'TimelineRaw:#Chronozoom.Entities', {}),
             ]
             for (let i = 0; i < extraFieldValue.length; ++i)
