@@ -11,10 +11,11 @@ function Field(type, jsonFieldName, publicFieldName, value, attributes) {
     return this
 }
 
-function JsonHandler () {
+function JsonHandler() {
     this.data = {}
     this.form = null
     this.filename = null
+    this.eventListeners = {}
 
     this.loadJson = function (filePaths) {
         if (typeof filePaths === undefined) return
@@ -23,12 +24,17 @@ function JsonHandler () {
             if (err) throw errREAD
             this.data = JSON.parse(data)
             this.regenerateForm()
+            console.log(this.form)
         })
     }
 
-    this.saveJson = function () {
+    this.updateData = function () {
         this.data = this.getFieldValue(this.form)
         this.postProcessData(this.data)
+    }
+
+    this.saveJson = function () {
+        this.updateData()
         try { electronFs.writeFileSync(this.filename, JSON.stringify(this.data), 'utf-8') }
         catch(e) { alert('Не удалось сохранить файл') }
     }
@@ -37,7 +43,7 @@ function JsonHandler () {
         return ([1e7]+-1e3+-4e3+-8e3+-1e11).replace(/[018]/g, c => (c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> c / 4).toString(16))
     }
 
-    this.postProcessData = function(data) {
+    this.postProcessData = function (data) {
         if (data.id == null)
             data.id = this.getNewGuid()
 
@@ -106,12 +112,13 @@ function JsonHandler () {
 
     this.regenerateForm = function () {
         this.form = this.generateTimelineField(this.data, true)
-        let html = this.generateFormHtml(this.form, null)
+        let html = this.generateFormHtml(this.form, null, {isRoot: true})
         $('#root').html(html)
+        this.eventListeners = {}
         this.refreshButtonEventListeners()
     }
 
-    this.generateTimelineField = function(data, isRootLevel) {
+    this.generateTimelineField = function (data, isRootLevel) {
         let fieldValue = [
             new Field('string', 'title', 'Название', data.title || '', {}),
             new Field('float', 'Height', 'Высота', data.Height || 0, {}),
@@ -178,7 +185,7 @@ function JsonHandler () {
                 new Field('string', 'attribution', 'Attribution?', data[i].attribution || '', {}),
                 new Field('text', 'description', 'Описание', data[i].description || '', {}),
                 new Field('string', 'mediaSource', 'Медиа источник', data[i].mediaSource || '', {}),
-                new Field('enum', 'mediaType', 'Медиа тип', (data[i].mediaType || 'audio').toLowerCase(), {enum_values: [['audio', 'audio'], ['deepimage', 'deep image'], ['image', 'image'], ['pdf', 'PDF'], ['picture', 'picture'], ['video', 'video']]}),
+                new Field('enum', 'mediaType', 'Медиа тип', (data[i].mediaType || 'audio').toLowerCase(), {enumValues: [['audio', 'audio'], ['deepimage', 'deep image'], ['image', 'image'], ['pdf', 'PDF'], ['picture', 'picture'], ['video', 'video']]}),
             ]
             fields[i] = new Field('contentItem', null, null, fieldValue, {})
         }
@@ -186,6 +193,7 @@ function JsonHandler () {
     }
 
     this.generateFormHtml = function (field, parentId) {
+    this.generateFormHtml = function (field, parentId, attributes) {
         if (field.attributes.hidden) return ''
 
         let id = parentId;
@@ -213,37 +221,38 @@ function JsonHandler () {
             case 'timeline':
                 html += `<div style="width:960px">`
                 for (let i = 0; i < field.value.length; ++i)
-                    html += this.generateFormHtml(field.value[i], id)
+                    html += this.generateFormHtml(field.value[i], id, {})
                 html += `</div>`
                 break
+            // TODO
             case 'timeline[]':
                 for (let i = 0; i < field.value.length; ++i)
-                    html += this.generateFormHtml(field.value[i], `${id}-timeline-${i}`)
+                    html += this.generateFormHtml(field.value[i], `${id}-timeline-${i}`, {isFirst: i == 0, isLast: i == field.value.length - 1})
                 break
             case 'exhibit':
                 html += `<div style="width:960px">`
                 for (let i = 0; i < field.value.length; ++i)
-                    html += this.generateFormHtml(field.value[i], id)
+                    html += this.generateFormHtml(field.value[i], id, {})
                 html += `</div>`
                 break
             case 'exhibit[]':
                 html += `<div>`
                 for (let i = 0; i < field.value.length; ++i)
-                    html += this.generateFormHtml(field.value[i], `${id}-exhibit-${i}`)
+                    html += this.generateFormHtml(field.value[i], `${id}-exhibit-${i}`, {isFirst: i == 0, isLast: i == field.value.length - 1})
                 html += `</div>`
                 break
             case 'contentItem':
                 for (let i = 0; i < field.value.length; ++i)
-                    html += this.generateFormHtml(field.value[i], id)
+                    html += this.generateFormHtml(field.value[i], id, {})
                 break
             case 'contentItem[]':
                 html += `<div style="width:960px">`
                 for (let i = 0; i < field.value.length; ++i)
-                    html += this.generateFormHtml(field.value[i], `${id}-content-item-${i}`)
+                    html += this.generateFormHtml(field.value[i], `${id}-content-item-${i}`, {isFirst: i == 0, isLast: i == field.value.length - 1})
                 html += `</div>`
                 break
             case 'enum':
-                values = field.attributes.enum_values || null
+                values = field.attributes.enumValues || null
                 if (!Array.isArray(values))
                     alert('enum values is null')
                 html += `<div style="width:780px"><select id="${id}" class="form-control">`
@@ -295,34 +304,54 @@ function JsonHandler () {
         return valueComponents
     }
 
-    this.handleAddButtonClick = function (type, buttonsId, componentId) {
-        let block = $(`#${buttonsId}`)
-        componentCount = block.length - 1
-        console.log(componentCount)
-
-        let id = null
-        let field = null
-        switch (type) {
-            case 'timeline[]':
-                id = `${componentId}-timeline-${componentCount}`
-                field = this.generateTimelineField({}, false)
-                break
-            case 'exhibit[]':
-                id = `${componentId}-exhibit-${componentCount}`
-                field = this.generateTimelineField({}, false)
-                break
-            case 'content-item[]':
-                id = `${componentId}-content-item-${componentCount}`
-                field = this.generateTimelineField({}, false)
-                break
-            default:
-                alert('Not implemented')
+    this.getFormField = function (id) {
+        field = this.form
+        while ((field.id || '') != id) {
+            switch (field.type) {
+                case 'timeline':
+                    for (let i = 0; i < field.value.length; ++i) {
+                        if (id.indexOf(field.value[i].id) == 0) {
+                            field = field.value[i]
+                            continue
+                        }
+                    }
+                    break
+                case 'string':
+                    break
+                default:
+                    throw `Not implemented type: ${field.type}`
+            }
         }
 
-        block.append(this.generateFormHtml(field, id))
+        if (field == null)
+            throw 'Logic exception'
+        return field
     }
 
-    this.handleHideButtonClick = function (type, buttonsId, componentId) {
+    this.handleAddButtonClick = function (type, buttonsId, fieldId) {
+        let field = this.getFormField(fieldId)
+        let fieldGenerator = null
+        let newField = null
+        switch (type) {
+            case 'timeline[]':
+                newField = jsonHandler.generateTimelineField({}, false)
+                break
+            case 'exhibit[]':
+                newField = jsonHandler.generateTimelineField({}, false) // TODO fix it
+                break
+            case 'content-item[]':
+                newField = jsonHandler.generateTimelineField({}, false) // TODO fix it
+                break
+            default:
+                throw `Not implemented type: ${type}`
+        }
+
+        field.value[field.value.length] = newField
+        this.updateData()
+        this.regenerateForm()
+    }
+
+    this.handleHideButtonClick = function (type, buttonsId, fieldId) {
         let block = $(`#${buttonsId}`)
         block.children().eq(0).hide('slow')
         block.children().eq(1).show('slow')
@@ -330,15 +359,13 @@ function JsonHandler () {
             block.children().eq(i).hide('slow')
     }
 
-    this.handleShowButtonClick = function (type, buttonsId, componentId) {
+    this.handleShowButtonClick = function (type, buttonsId, fieldId) {
         let block = $(`#${buttonsId}`)
         block.children().eq(0).show('slow')
         block.children().eq(1).hide('slow')
         for (let i = 2; i <= block.children().length; ++i)
             block.children().eq(i).show('slow')
     }
-
-    this.eventListeners = {}
 
     this.refreshButtonEventListeners = function () {
         let data = [
@@ -353,8 +380,8 @@ function JsonHandler () {
                 if (!this.eventListeners[key]) {
                     this.eventListeners[key] = true
                     elements[j].addEventListener('click', function (event) {
-                        let [type, buttonsId, componentId] = jsonHandler.prepareButtonClick(event.srcElement.value)
-                        data[i].action(type, buttonsId, componentId)
+                        let [type, buttonsId, fieldId] = jsonHandler.prepareButtonClick(event.srcElement.value)
+                        data[i].action(type, buttonsId, fieldId)
                         jsonHandler.refreshButtonEventListeners()
                     })
                 }
