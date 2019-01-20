@@ -131,7 +131,7 @@ function JsonHandler() {
             new Field('string', 'Regime', 'Регион', data.Regime || '', {}),
             new Field('float', 'start', 'Начало', data.start || 0, {}),
             new Field('float', 'end', 'Конец', data.end || 0, {}),
-            new Field('guid', 'id', 'ID', data.id || '', {hidden: true}),
+            new Field('guid', 'id', 'ID', data.id || null, {hidden: true}),
             new Field('timeline[]', 'timelines', 'Период', this.generateTimelinesField(data.timelines || []), {useNullInsteadEmptyArray: true, hasButtons: true}),
             new Field('exhibit[]', 'exhibits', 'Экспонаты', this.generateExhibitsField(data.exhibits || []), {hasButtons: true}),
         ]
@@ -167,7 +167,7 @@ function JsonHandler() {
     this.generateExhibitField = function (data) {
         let fieldValue = [
             new Field('guid', 'id', null, data.id || '', {hidden: true}),
-            new Field('guid', 'parentTimelineid', null, data.parentTimelineId, {hidden: true}),
+            new Field('guid', 'parentTimelineid', null, data.parentTimelineId || null, {hidden: true}),
             new Field('string', 'title', 'Название', data.title || '', {}),
             new Field('float', 'time', 'Время', data.time || 0, {}),
             new Field('contentItem[]', 'contentItems', 'Контент', this.generateExhibitContentItemsField(data.contentItems || []), {hasButtons: true})
