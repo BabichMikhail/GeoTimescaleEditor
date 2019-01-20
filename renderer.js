@@ -24,7 +24,6 @@ function JsonHandler() {
             if (err) throw errREAD
             this.data = JSON.parse(data)
             this.regenerateForm()
-            console.log(this.form)
         })
     }
 
@@ -158,37 +157,43 @@ function JsonHandler() {
         return fields
     }
 
+    this.generateExhibitField = function (data) {
+        let fieldValue = [
+            new Field('guid', 'id', null, data.id || '', {hidden: true}),
+            new Field('guid', 'parentTimelineid', null, data.parentTimelineId, {hidden: true}),
+            new Field('string', 'title', 'Название', data.title || '', {}),
+            new Field('float', 'time', 'Время', data.time || 0, {}),
+            new Field('contentItem[]', 'contentItems', 'Контент', this.generateExhibitContentItemsField(data.contentItems || []), {hasButtons: true})
+        ]
+        return new Field('exhibit', null, null, fieldValue, {})
+    }
+
     this.generateExhibitsField = function (data) {
         let fields = []
-        for (let i = 0; i < data.length; ++i) {
-            let fieldValue = [
-                new Field('guid', 'id', null, data[i].id || '', {hidden: true}),
-                new Field('guid', 'parentTimelineid', null, data[i].parentTimelineId, {hidden: true}),
-                new Field('string', 'title', 'Название', data[i].title || '', {}),
-                new Field('float', 'time', 'Время', data[i].time || 0, {}),
-                new Field('contentItem[]', 'contentItems', 'Контент', this.generateExhibitContentItemsField(data[i].contentItems || []), {hasButtons: true})
-            ]
-            fields[i] = new Field('exhibit', null, null, fieldValue, {})
-        }
+        for (let i = 0; i < data.length; ++i)
+            fields[i] = this.generateExhibitField(data[i])
         return fields
+    }
+
+    this.generateExhibitContentItemField = function (data) {
+        let fieldValue = [
+            new Field('guid', 'id', null, data.id || '', {hidden: true}),
+            new Field('guid', 'parentExhibitId', null, data.parentExhibitId || '', {hidden: true}),
+            new Field('string', 'title', 'Название', data.title || '', {}),
+            new Field('string', 'uri', 'Ссылка', data.uri || '', {}),
+            new Field('int', 'Order', null, data.Order || 1, {hidden: true}),
+            new Field('string', 'attribution', 'Attribution?', data.attribution || '', {}),
+            new Field('text', 'description', 'Описание', data.description || '', {}),
+            new Field('string', 'mediaSource', 'Медиа источник', data.mediaSource || '', {}),
+            new Field('enum', 'mediaType', 'Медиа тип', (data.mediaType || 'audio').toLowerCase(), {enumValues: [['audio', 'audio'], ['deepimage', 'deep image'], ['image', 'image'], ['pdf', 'PDF'], ['picture', 'picture'], ['video', 'video']]}),
+        ]
+        return new Field('contentItem', null, null, fieldValue, {})
     }
 
     this.generateExhibitContentItemsField = function (data) {
         let fields = []
-        for (let i = 0; i < data.length; ++i) {
-            let fieldValue = [
-                new Field('guid', 'id', null, data[i].id || '', {hidden: true}),
-                new Field('guid', 'parentExhibitId', null, data[i].parentExhibitId || '', {hidden: true}),
-                new Field('string', 'title', 'Название', data[i].title, {}),
-                new Field('string', 'uri', 'Ссылка', data[i].uri || '', {}),
-                new Field('int', 'Order', null, data[i].Order || 1, {hidden: true}),
-                new Field('string', 'attribution', 'Attribution?', data[i].attribution || '', {}),
-                new Field('text', 'description', 'Описание', data[i].description || '', {}),
-                new Field('string', 'mediaSource', 'Медиа источник', data[i].mediaSource || '', {}),
-                new Field('enum', 'mediaType', 'Медиа тип', (data[i].mediaType || 'audio').toLowerCase(), {enumValues: [['audio', 'audio'], ['deepimage', 'deep image'], ['image', 'image'], ['pdf', 'PDF'], ['picture', 'picture'], ['video', 'video']]}),
-            ]
-            fields[i] = new Field('contentItem', null, null, fieldValue, {})
-        }
+        for (let i = 0; i < data.length; ++i)
+            fields[i] = this.generateExhibitContentItemField(data)
         return fields;
     }
 
@@ -309,14 +314,15 @@ function JsonHandler() {
         while ((field.id || '') != id) {
             switch (field.type) {
                 case 'timeline':
+                case 'timeline[]':
+                case 'exhibit':
+                case 'exhibit[]':
                     for (let i = 0; i < field.value.length; ++i) {
                         if (id.indexOf(field.value[i].id) == 0) {
                             field = field.value[i]
                             continue
                         }
                     }
-                    break
-                case 'string':
                     break
                 default:
                     throw `Not implemented type: ${field.type}`
@@ -337,10 +343,10 @@ function JsonHandler() {
                 newField = jsonHandler.generateTimelineField({}, false)
                 break
             case 'exhibit[]':
-                newField = jsonHandler.generateTimelineField({}, false) // TODO fix it
+                newField = jsonHandler.generateExhibitField({}, false)
                 break
-            case 'content-item[]':
-                newField = jsonHandler.generateTimelineField({}, false) // TODO fix it
+            case 'contentItem[]':
+                newField = jsonHandler.generateExhibitContentItemField({}, false)
                 break
             default:
                 throw `Not implemented type: ${type}`
