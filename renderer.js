@@ -207,8 +207,8 @@ function JsonHandler() {
     this.generateArrayItemButtons = function (id, itemVisible, canMoveUp, canMoveDown, canDelete, canChangeVisibility) {
         if (id == null) return `` // TODO otstoi
 
-        visibleButtonStyle = ``
-        hiddenButtonStyle = `style="display:none"`
+        let visibleButtonStyle = ``
+        let hiddenButtonStyle = `style="display:none"`
         if (!itemVisible)
             [hiddenButtonStyle, visibleButtonStyle] = [visibleButtonStyle, hiddenButtonStyle]
 
@@ -275,7 +275,7 @@ function JsonHandler() {
                     html += this.generateFormHtml(field.value[i], `${id}-exhibit-${i}`, {isFirst: i == 0, isLast: i == field.value.length - 1})
                 break
             case 'contentItem':
-                html += `<div style="width:960px"><hr>${this.generateArrayItemButtons(id, field.attributes.visible || true, !attributes.isFirst && !attributes.isRoot, !attributes.isLast && !attributes.isRoot, !attributes.isRoot, !attributes.isRoot)}<div>`
+                html += `<div style="width:960px"><hr>${this.generateArrayItemButtons(id, attributes.visible || true, !attributes.isFirst && !attributes.isRoot, !attributes.isLast && !attributes.isRoot, !attributes.isRoot, !attributes.isRoot)}<div>`
                 for (let i = 0; i < field.value.length; ++i)
                     html += this.generateFormHtml(field.value[i], id, {})
                 html += `</div></div>`
@@ -331,7 +331,7 @@ function JsonHandler() {
     }
 
     this.getFormField = function (id) {
-        field = this.form
+        let field = this.form
         while ((field.id || '') != id) {
             switch (field.type) {
                 case 'timeline':
@@ -357,6 +357,12 @@ function JsonHandler() {
         return field
     }
 
+    this.setExtraAttribute = function (id, attribute, value) {
+        let attributes = (this.extraAttributesById[id] || {})
+        attributes[attribute] = value
+        this.extraAttributesById[id] = attributes
+    }
+
     this.handleAddButtonClick = function (type, buttonsId, fieldId) {
         let field = this.getFormField(fieldId)
         let fieldGenerator = null
@@ -380,81 +386,51 @@ function JsonHandler() {
         this.regenerateForm()
     }
 
-    this.handleHideButtonClick = function (type, buttonsId, fieldId) {
+    this.handleChangeVisibilityClick = function (type, buttonsId, fieldId, visible) {
         let block = $(`#${buttonsId}`)
-        block.children().eq(0).hide('slow')
-        block.children().eq(1).show('slow')
+        let childs1 = [0]
+        let childs2 = [1]
+
         for (let i = 2; i <= block.children().length; ++i)
-            block.children().eq(i).hide('slow')
+            childs1[i - 1] = i
+        if (visible)
+            [childs1, childs2] = [childs2, childs1]
+
+        for (let i = 0; i < childs1.length; ++i)
+            block.children().eq(childs1[i]).hide('slow')
+        for (let i = 0; i < childs2.length; ++i)
+            block.children().eq(childs2[i]).show('slow')
     }
 
-    this.handleShowButtonClick = function (type, buttonsId, fieldId) {
-        let block = $(`#${buttonsId}`)
-        block.children().eq(0).show('slow')
-        block.children().eq(1).hide('slow')
-        for (let i = 2; i <= block.children().length; ++i)
-            block.children().eq(i).show('slow')
-    }
-
-    this.setExtraAttribute = function (id, attribute, value) {
-        let attributes = (this.extraAttributesById[id] || {})
-        attributes[attribute] = value
-        this.extraAttributesById[id] = attributes
-    }
-
-    // TODO more and more copy-paste
-    this.handleHideItemButtonClick = function (fieldId) {
-        this.setExtraAttribute(fieldId, 'visible', false)
-        splitedId = fieldId.split('-')
+    this.handleChangeItemVisibilityButtonClick = function (fieldId, visible) {
+        this.setExtraAttribute(fieldId, 'visible', visible)
+        let splitedId = fieldId.split('-')
         let index = parseInt(splitedId[splitedId.length - 1])
         splitedId.pop()
         splitedId.pop()
 
         let parentId = splitedId.join('-')
-        parentField = this.getFormField(parentId)
+        let parentField = this.getFormField(parentId)
         let block = $(`#${parentId}-buttons`).children().eq(index + 2).children().eq(0)
-        block.children().eq(1).html(this.generateArrayItemButtons(fieldId, false, index > 0, index < parentField.value - 1, true, true))
-        block.children().eq(2).hide('slow')
+        block.children().eq(1).html(this.generateArrayItemButtons(fieldId, visible, index > 0, index < parentField.value.length - 1, true, true))
+
+        let child = block.children().eq(2)
+        if (visible)
+            child.show('slow')
+        else
+            child.hide('slow')
     }
 
-    this.handleShowItemButtonClick = function (fieldId) {
-        this.setExtraAttribute(fieldId, 'visible', true)
-        splitedId = fieldId.split('-')
-        let index = parseInt(splitedId[splitedId.length - 1])
+    this.handleSwapItemButtonClick = function (fieldId, otherIndexOffset) {
+        let splitedId = fieldId.split('-')
+        let index1 = parseInt(splitedId[splitedId.length - 1])
+        let index2 = index1 + otherIndexOffset
         splitedId.pop()
         splitedId.pop()
 
-        let parentId = splitedId.join('-')
-        parentField = this.getFormField(parentId)
-        let block = $(`#${parentId}-buttons`).children().eq(index + 2).children().eq(0)
-        block.children().eq(1).html(this.generateArrayItemButtons(fieldId, true, index > 0, index < parentField.value - 1, true, true))
-        block.children().eq(2).show('slow')
-    }
-
-    this.handleUpItemButtonClick = function (fieldId) {
-        // TODO не работает
-        splitedId = fieldId.split('-')
-        let index = parseInt(splitedId[splitedId.length - 1])
-        splitedId.pop()
-        splitedId.pop()
-
-        if (index == 0) return
-        parentField = this.getFormField(splitedId.join('-'))
-        [parentField.value[index - 1], parentField.value[index]] = [parentField.value[index], parentField.value[index - 1]]
-
-        this.updateData()
-        this.regenerateForm()
-    }
-
-    this.handleDownItemButtonClick = function (fieldId) {
-        splitedId = fieldId.split('-')
-        let index = parseInt(splitedId[splitedId.length - 1])
-        splitedId.pop()
-        splitedId.pop()
-
-        parentField = this.getFormField(splitedId.join('-'))
-        if (index == parentField.value.length - 1) return
-        [parentField.value[index + 1], parentField.value[index]] = [parentField.value[index], parentField.value[index + 1]]
+        let parentField = this.getFormField(splitedId.join('-'))
+        if (0 > index2 || index2 > parentField.value.length - 1) return
+        [parentField.value[index1], parentField.value[index2]] = [parentField.value[index2], parentField.value[index1]]
 
         this.updateData()
         this.regenerateForm()
@@ -479,12 +455,12 @@ function JsonHandler() {
     this.refreshButtonEventListeners = function () {
         let data = [
             {class: '.add-button', action: function (a, b, c) { jsonHandler.handleAddButtonClick(a, b, c) }},
-            {class: '.hide-button', action: function (a, b, c) { jsonHandler.handleHideButtonClick(a, b, c) }},
-            {class: '.show-button', action: function (a, b, c) { jsonHandler.handleShowButtonClick(a, b, c) }},
-            {class: '.hide-item-button', action: function (a) { jsonHandler.handleHideItemButtonClick(a) }},
-            {class: '.show-item-button', action: function (a) { jsonHandler.handleShowItemButtonClick(a) }},
-            {class: '.up-item-button', action: function (a) { jsonHandler.handleUpItemButtonClick(a) }},
-            {class: '.down-item-button', action: function (a) { jsonHandler.handleDownItemButtonClick(a) }},
+            {class: '.hide-button', action: function (a, b, c) { jsonHandler.handleChangeVisibilityClick(a, b, c, false) }},
+            {class: '.show-button', action: function (a, b, c) { jsonHandler.handleChangeVisibilityClick(a, b, c, true) }},
+            {class: '.hide-item-button', action: function (a) { jsonHandler.handleChangeItemVisibilityButtonClick(a, false) }},
+            {class: '.show-item-button', action: function (a) { jsonHandler.handleChangeItemVisibilityButtonClick(a, true) }},
+            {class: '.up-item-button', action: function (a) { jsonHandler.handleSwapItemButtonClick(a, -1) }},
+            {class: '.down-item-button', action: function (a) { jsonHandler.handleSwapItemButtonClick(a, 1) }},
             {class: '.remove-item-button', action: function (a) { jsonHandler.handleRemoveItemButtonClick(a) }},
         ]
         for (let i = 0; i < data.length; ++i) {
