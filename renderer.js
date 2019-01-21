@@ -256,7 +256,9 @@ function JsonHandler() {
             case 'timeline':
             case 'exhibit':
             case 'contentItem':
-                html += `<div style="width:960px"><hr>${this.generateArrayItemButtons(id, attributes.visible || true, !attributes.isFirst && !attributes.isRoot, !attributes.isLast && !attributes.isRoot, !attributes.isRoot, !attributes.isRoot)}<div>`
+                let visible = attributes.visible === undefined ? true : attributes.visible
+                let divStyle = visible ? '' : 'style="display:none"'
+                html += `<div style="width:960px"><hr>${this.generateArrayItemButtons(id, visible, !attributes.isFirst && !attributes.isRoot, !attributes.isLast && !attributes.isRoot, !attributes.isRoot, !attributes.isRoot)}<div ${divStyle}>`
                 for (let i = 0; i < field.value.length; ++i)
                     html += this.generateFormHtml(field.value[i], id, {})
                 html += `</div></div>`
@@ -347,6 +349,13 @@ function JsonHandler() {
         this.extraAttributesById[id] = attributes
     }
 
+    this.swapExtraAttributes = function (id1, id2) {
+        let attributes1 = (this.extraAttributesById[id1] || {})
+        let attributes2 = (this.extraAttributesById[id2] || {})
+        this.extraAttributesById[id1] = attributes2
+        this.extraAttributesById[id2] = attributes1
+    }
+
     this.handleAddButtonClick = function (type, buttonsId, fieldId) {
         let field = this.getFormField(fieldId)
         let fieldGenerator = null
@@ -405,16 +414,18 @@ function JsonHandler() {
             child.hide('slow')
     }
 
-    this.handleSwapItemButtonClick = function (fieldId, otherIndexOffset) {
-        let splitedId = fieldId.split('-')
+    this.handleSwapItemButtonClick = function (fieldId1, otherIndexOffset) {
+        let splitedId = fieldId1.split('-')
         let index1 = parseInt(splitedId[splitedId.length - 1])
         let index2 = index1 + otherIndexOffset
         splitedId.pop()
+        let fieldId2 = `${splitedId.slice(0).join('-')}-${index2}`
         splitedId.pop()
 
         let parentField = this.getFormField(splitedId.join('-'))
         if (0 > index2 || index2 > parentField.value.length - 1) return
         [parentField.value[index1], parentField.value[index2]] = [parentField.value[index2], parentField.value[index1]]
+        this.swapExtraAttributes(fieldId1, fieldId2)
 
         this.updateData()
         this.regenerateForm()
