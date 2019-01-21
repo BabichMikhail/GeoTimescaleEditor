@@ -254,44 +254,28 @@ function JsonHandler() {
                 html += `<textarea id="${id}" class="form-control" rows="5" style="width:780px">${field.value}</textarea>`
                 break
             case 'timeline':
-                html += `<div style="width:960px"><hr>${this.generateArrayItemButtons(id, attributes.visible || true, !attributes.isFirst && !attributes.isRoot, !attributes.isLast && !attributes.isRoot, !attributes.isRoot, !attributes.isRoot)}<div>`
-                for (let i = 0; i < field.value.length; ++i)
-                    html += this.generateFormHtml(field.value[i], id, {})
-                html += `</div></div>`
-                break
-            // TODO more copy-paste...
-            case 'timeline[]':
-                for (let i = 0; i < field.value.length; ++i)
-                    html += this.generateFormHtml(field.value[i], `${id}-timeline-${i}`, {isFirst: i == 0, isLast: i == field.value.length - 1})
-                break
             case 'exhibit':
-                html += `<div style="width:960px"><hr>${this.generateArrayItemButtons(id, attributes.visible || true, !attributes.isFirst && !attributes.isRoot, !attributes.isLast && !attributes.isRoot, !attributes.isRoot, !attributes.isRoot)}<div>`
-                for (let i = 0; i < field.value.length; ++i)
-                    html += this.generateFormHtml(field.value[i], id, {})
-                html += `</div></div>`
-                break
-            case 'exhibit[]':
-                for (let i = 0; i < field.value.length; ++i)
-                    html += this.generateFormHtml(field.value[i], `${id}-exhibit-${i}`, {isFirst: i == 0, isLast: i == field.value.length - 1})
-                break
             case 'contentItem':
                 html += `<div style="width:960px"><hr>${this.generateArrayItemButtons(id, attributes.visible || true, !attributes.isFirst && !attributes.isRoot, !attributes.isLast && !attributes.isRoot, !attributes.isRoot, !attributes.isRoot)}<div>`
                 for (let i = 0; i < field.value.length; ++i)
                     html += this.generateFormHtml(field.value[i], id, {})
                 html += `</div></div>`
                 break
+            case 'timeline[]':
+            case 'exhibit[]':
             case 'contentItem[]':
+                let baseId = field.type.substring(0, field.type.length - 2).toLowerCase()
                 for (let i = 0; i < field.value.length; ++i)
-                    html += this.generateFormHtml(field.value[i], `${id}-contentitem-${i}`, {isFirst: i == 0, isLast: i == field.value.length - 1})
+                    html += this.generateFormHtml(field.value[i], `${id}-${baseId}-${i}`, {isFirst: i == 0, isLast: i == field.value.length - 1})
                 break
             case 'enum':
-                values = field.attributes.enumValues || null
+                let values = field.attributes.enumValues || null
                 if (!Array.isArray(values))
                     alert('enum values is null')
 
                 html += `<div style="width:780px"><select id="${id}" class="form-control">`
                 for (let i = 0; i < values.length; ++i) {
-                    selected = values[i][0] == field.value ? ` selected` : ``;
+                    let selected = values[i][0] == field.value ? ` selected` : ``;
                     html += `<option value="${values[i][0]}"${selected}>${values[i][1]}</option>`
                 }
                 html += `</select></div>`
