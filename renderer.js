@@ -147,7 +147,7 @@ function JsonHandler() {
                 new Field('unknown', 'ToMonth', null, data.ToMonth || null, {}),
                 new Field('unknown', 'ToYear', null, data.ToYear || null, {}),
                 new Field('unknown', 'Sequence', null, data.Sequence || null, {}),
-                new Field('string', 'Threshold', 'Порог', data.Threshold || null, {}),
+                new Field('string', 'Threshold', 'Порог', data.Threshold || '', {}),
                 new Field('int', 'UniqueID', 'Уникальный ID', this.getUniqueId(data.UniqueID || null), {hidden: true}),
                 new Field('unknown', '__type', null, data.__type || 'TimelineRaw:#Chronozoom.Entities', {}),
             ]
@@ -189,7 +189,7 @@ function JsonHandler() {
             new Field('string', 'title', 'Название', data.title || '', {}),
             new Field('string', 'uri', 'Ссылка', data.uri || '', {}),
             new Field('int', 'Order', null, data.Order || 1, {hidden: true}),
-            new Field('string', 'attribution', 'Attribution?', data.attribution || '', {}),
+            new Field('string', 'attribution', null, data.attribution || '', {hidden: true}),
             new Field('text', 'description', 'Описание', data.description || '', {}),
             new Field('string', 'mediaSource', 'Медиа источник', data.mediaSource || '', {}),
             new Field('enum', 'mediaType', 'Медиа тип', (data.mediaType || 'audio').toLowerCase(), {enumValues: [['audio', 'audio'], ['deepimage', 'deep image'], ['image', 'image'], ['pdf', 'PDF'], ['picture', 'picture'], ['video', 'video']]}),
