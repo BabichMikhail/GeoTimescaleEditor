@@ -119,7 +119,7 @@ function JsonHandler() {
 
     this.getUniqueId = function (idCandidate) {
         while (idCandidate == null || (this.timelineUniqueIdSet[idCandidate] || false))
-            idCandidate = Math.floor(Math.random() * 2500000000)
+            idCandidate = Math.floor(Math.random() * 250000000)
         this.timelineUniqueIdSet[idCandidate] = true
         return idCandidate
     }
@@ -140,11 +140,14 @@ function JsonHandler() {
             let extraFieldValue = [
                 new Field('unknown', 'ChildTimelines', null, data.ChildTimelines || null, {}),
                 new Field('guid', 'ParentTimelineId', null, data.ParentTimelineId || null, {hidden: true}),
+                new Field('unknown', 'ForkNode', null, data.ForkNode || 0.0, {}),
                 new Field('unknown', 'FromDay', null, data.FromDay || null, {}),
                 new Field('unknown', 'FromMonth', null, data.FromMonth || null, {}),
+                new Field('unknown', 'FromTimeUnit', null, data.ToTimeUnit || null, {}),
                 new Field('unknown', 'FromYear', null, data.FromYear || null, {}),
                 new Field('unknown', 'ToDay', null, data.ToDay || null, {}),
                 new Field('unknown', 'ToMonth', null, data.ToMonth || null, {}),
+                new Field('unknown', 'ToTimeUnit', null, data.ToTimeUnit || null, {}),
                 new Field('unknown', 'ToYear', null, data.ToYear || null, {}),
                 new Field('unknown', 'Sequence', null, data.Sequence || null, {}),
                 new Field('string', 'Threshold', 'Порог', data.Threshold || '', {}),
